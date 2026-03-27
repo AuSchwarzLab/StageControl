@@ -168,13 +168,13 @@ If hardware is not detected:
 
 ## Project Structure (simplified)
 
-├── main.py
-├── controller/
-├── widgets/
-├── position_manager.py
-├── logger.py
-├── log/
-├── positions/
+├── main.py <br>
+├── controller/ <br>
+├── widgets/ <br>
+├── position_manager.py <br>
+├── logger.py <br>
+├── log/ <br>
+├── positions/ <br>
 └── dist/ (build output, ignored)
 
 ## Notes
