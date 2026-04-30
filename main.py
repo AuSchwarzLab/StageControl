@@ -12,7 +12,8 @@ from mcmk4 import MCMK4
 from piezo_motor import PiezoStage
 from multi_stage_controller import MultiStageController
 from standa_xy_stage import Standa_XY
-from thorlabs_z_stage import Z_Stage
+from thorlabs_z_linear import Z_Stage
+#from thorlabs_z_labjack import Z_Stage
 
 
 def resource_path(rel_path):

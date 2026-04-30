@@ -170,7 +170,15 @@ If hardware is not detected:
 
 ├── main.py <br>
 ├── controller/ <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── mcmk4.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── standa_xy.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── piezo_motor.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── thorlabs_z_stage.py <br>
 ├── widgets/ <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── main_window.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── stage_indicator_widget.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── xy_control_widget.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── z_control_widget.py <br>
 ├── position_manager.py <br>
 ├── logger.py <br>
 ├── log/ <br>
