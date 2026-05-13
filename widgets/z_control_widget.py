@@ -33,7 +33,7 @@ class ZControlWidget(QWidget):
 
         stop.setStyleSheet("background-color:#8b0000; font-weight:bold")
 
-        self.labjack = QRadioButton("LabJack")
+        self.labjack = QRadioButton("Linear stage")
         self.piezo = QRadioButton("Piezo (N steps = stepsize x 10)")
         self.labjack.setChecked(True)
 
