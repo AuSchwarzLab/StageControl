@@ -6,14 +6,13 @@ import sys
 import os
 from PyQt5.QtWidgets import QApplication
 from PyQt5 import QtGui, QtCore
-from main_window import MainWindow
+from widgets.main_window import MainWindow
 
-from mcmk4 import MCMK4
-from piezo_motor import PiezoStage
+from hardware.mcmk4 import MCMK4
+from hardware.piezo_motor import PiezoStage
 from multi_stage_controller import MultiStageController
-from standa_xy_stage import Standa_XY
-from thorlabs_z_linear import Z_Stage
-#from thorlabs_z_labjack import Z_Stage
+from hardware.standa_xy_stage import Standa_XY
+from hardware.thorlabs_zfs25b import ZFS25BStage
 
 
 def resource_path(rel_path):
@@ -42,7 +41,7 @@ def set_dark_mode(app):
 
 joystick = MCMK4()
 xy = Standa_XY()
-z = Z_Stage()
+z = ZFS25BStage()
 piezo = PiezoStage()
 controller = MultiStageController(joystick, xy, z, piezo)
 

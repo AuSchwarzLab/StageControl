@@ -8,9 +8,9 @@ from PyQt5.QtGui import QDoubleValidator, QPixmap
 
 import re, sys
 import os
-from xy_control_widget import XYControlWidget
-from z_control_widget import ZControlWidget
-from stage_indicator_widget import StageIndicatorWidget
+from widgets.xy_control_widget import XYControlWidget
+from widgets.z_control_widget import ZControlWidget
+from widgets.stage_indicator_widget import StageIndicatorWidget
 from position_manager import PositionManager
 from logger import StageControlLogger
 
