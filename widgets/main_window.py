@@ -11,8 +11,8 @@ import os
 from widgets.xy_control_widget import XYControlWidget
 from widgets.z_control_widget import ZControlWidget
 from widgets.stage_indicator_widget import StageIndicatorWidget
-from position_manager import PositionManager
-from logger import StageControlLogger
+from utils.position_manager import PositionManager
+from utils.logger import StageControlLogger
 
 
 class ControllerSignals(QObject):

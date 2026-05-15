@@ -10,7 +10,7 @@ from widgets.main_window import MainWindow
 
 from hardware.mcmk4 import MCMK4
 from hardware.piezo_motor import PiezoStage
-from multi_stage_controller import MultiStageController
+from utils.multi_stage_controller import MultiStageController
 from hardware.standa_xy_stage import Standa_XY
 from hardware.thorlabs_zfs25b import ZFS25BStage
 
