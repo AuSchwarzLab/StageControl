@@ -79,7 +79,7 @@ class BaseStage(ABC):
 
         self.stage.setup_velocity(
             acceleration=50e4,
-            max_velocity=50e6,
+            max_velocity=self.MOVE_TO_SPEED,
             scale=False
         )
 
