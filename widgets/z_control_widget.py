@@ -27,30 +27,30 @@ class ZControlWidget(QWidget):
 
         layout = QVBoxLayout()
 
-        up = QPushButton("↑")
-        stop = QPushButton("STOP")
-        down = QPushButton("↓")
+        self.up_btn = QPushButton("↑")
+        self.stop_btn = QPushButton("STOP")
+        self.down_btn = QPushButton("↓")
 
-        stop.setStyleSheet("background-color:#8b0000; font-weight:bold")
+        self.stop_btn.setStyleSheet("background-color:#8b0000; font-weight:bold")
 
         self.labjack = QRadioButton("Linear stage")
         self.piezo = QRadioButton("Piezo (N steps = stepsize x 10)")
         self.labjack.setChecked(True)
 
-        layout.addWidget(up)
-        layout.addWidget(stop)
-        layout.addWidget(down)
+        layout.addWidget(self.up_btn)
+        layout.addWidget(self.stop_btn)
+        layout.addWidget(self.down_btn)
         layout.addWidget(self.labjack)
         layout.addWidget(self.piezo)
 
         self.setLayout(layout)
 
         # button signals
-        up.pressed.connect(lambda: self.button_pressed(+1))
-        down.pressed.connect(lambda: self.button_pressed(-1))
-        up.released.connect(self.button_released)
-        down.released.connect(self.button_released)
-        stop.clicked.connect(self.stop_move)
+        self.up_btn.pressed.connect(lambda: self.button_pressed(+1))
+        self.down_btn.pressed.connect(lambda: self.button_pressed(-1))
+        self.up_btn.released.connect(self.button_released)
+        self.down_btn.released.connect(self.button_released)
+        self.stop_btn.clicked.connect(self.stop_move)
 
     # ------------------------------------------------
     # Button handling

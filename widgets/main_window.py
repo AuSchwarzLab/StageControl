@@ -97,6 +97,15 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.update_positions)
         self.timer.start(200)
 
+        # timer for blinking remote control button
+        self.remote_blink_timer = QTimer()
+        self.remote_blink_timer.timeout.connect(
+            self.remote_blink_step
+        )
+        self.remote_blink_state = False
+        self.remote_blink_counter = 0
+        self.install_remote_mode_filters()
+
         # size of the GUI window
         #self.resize(500, 600)
         self.adjustSize()
@@ -256,25 +265,25 @@ class MainWindow(QMainWindow):
         self.save_name_edit = QLineEdit()
         self.save_name_edit.setPlaceholderText("Enter position name")
         self.save_name_edit.returnPressed.connect(self.save_position)
-        save_btn = QPushButton("Save position")
-        save_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        save_btn.clicked.connect(self.save_position)
+        self.save_btn = QPushButton("Save position")
+        self.save_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.save_btn.clicked.connect(self.save_position)
         layout.addWidget(name_label, 0, 0)
         layout.addWidget(self.save_name_edit, 0, 1, 1, 2)
-        layout.addWidget(save_btn, 0, 3)
+        layout.addWidget(self.save_btn, 0, 3)
         pos_label = QLabel("Saved positions")
         self.position_combo = QComboBox()
         self.update_position_list()
-        manage_btn = QPushButton("Manage positions")
-        manage_btn.clicked.connect(self.open_position_manager)
-        manage_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        goto_btn = QPushButton("Go to position")
-        goto_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        goto_btn.clicked.connect(self.goto_position)
+        self.manage_btn = QPushButton("Manage positions")
+        self.manage_btn.clicked.connect(self.open_position_manager)
+        self.manage_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.goto_btn = QPushButton("Go to position")
+        self.goto_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.goto_btn.clicked.connect(self.goto_position)
         layout.addWidget(pos_label, 1, 0)
         layout.addWidget(self.position_combo, 1, 1)
-        layout.addWidget(manage_btn, 1, 2)
-        layout.addWidget(goto_btn, 1, 3)
+        layout.addWidget(self.manage_btn, 1, 2)
+        layout.addWidget(self.goto_btn, 1, 3)
         box.setLayout(layout)
         return box
     
@@ -357,83 +366,211 @@ class MainWindow(QMainWindow):
 
         layout = QGridLayout()
 
-        xy_slider = QSlider(Qt.Horizontal)
-        xy_slider.setRange(1,100)
+        self.xy_slider = QSlider(Qt.Horizontal)
+        self.xy_slider.setRange(1,100)
         xy_val = QLabel("")
 
-        z_slider = QSlider(Qt.Horizontal)
-        z_slider.setRange(1,100)
+        self.z_slider = QSlider(Qt.Horizontal)
+        self.z_slider.setRange(1,100)
         z_val = QLabel("")
 
-        p_slider = QSlider(Qt.Horizontal)
-        p_slider.setRange(1,100)
+        self.p_slider = QSlider(Qt.Horizontal)
+        self.p_slider.setRange(1,100)
         p_val = QLabel("")
 
         # xy slider
         init_xy = self.controller.ref_max_xy * 1.0  # slider 50% = factor 1.0
         xy_val.setText(f"{init_xy:.1f} mm/s")
-        xy_slider.setValue(50)
-        xy_slider.valueChanged.connect(
+        self.xy_slider.setValue(50)
+        self.xy_slider.valueChanged.connect(
             lambda v: xy_val.setText(f"{self.controller.set_max_velocity_xy(v):.1f} mm/s")
         )
-        xy_slider.sliderReleased.connect(
+        self.xy_slider.sliderReleased.connect(
             lambda: self.log.info(f"XY velocity set to {self.controller.max_xy:.1f} mm/s")
         )
 
         init_z = self.controller.ref_max_z * 1.0
         z_val.setText(f"{init_z:.1f} mm/s")
-        z_slider.setValue(50)
-        z_slider.valueChanged.connect(
+        self.z_slider.setValue(50)
+        self.z_slider.valueChanged.connect(
             lambda v: z_val.setText(f"{self.controller.set_max_velocity_z(v):.1f} mm/s")
         )
-        z_slider.sliderReleased.connect(
+        self.z_slider.sliderReleased.connect(
             lambda: self.log.info(f"Z velocity set to {self.controller.max_z:.1f} mm/s")
         )
 
         init_p = self.controller.ref_max_piezo * 1.0
         p_val.setText(f"{init_p:.0f} steps/s")
-        p_slider.setValue(50)
-        p_slider.valueChanged.connect(
+        self.p_slider.setValue(50)
+        self.p_slider.valueChanged.connect(
             lambda v: p_val.setText(f"{self.controller.set_max_velocity_piezo(v):.0f} steps/s")
         )
-        p_slider.sliderReleased.connect(
+        self.p_slider.sliderReleased.connect(
             lambda: self.log.info(f"Piezo velocity set to {self.controller.max_piezo:.1f} steps/s")
         )
 
         layout.addWidget(QLabel("XY"),0,0)
-        layout.addWidget(xy_slider,0,1)
+        layout.addWidget(self.xy_slider,0,1)
         layout.addWidget(xy_val,0,2)
 
         layout.addWidget(QLabel("Z"),1,0)
-        layout.addWidget(z_slider,1,1)
+        layout.addWidget(self.z_slider,1,1)
         layout.addWidget(z_val,1,2)
 
         layout.addWidget(QLabel("Piezo"),2,0)
-        layout.addWidget(p_slider,2,1)
+        layout.addWidget(self.p_slider,2,1)
         layout.addWidget(p_val,2,2)
 
         box.setLayout(layout)
         return box
     
     # ------------------------------------------------
-    # Help button
+    # Help + Remote Server Control
     # ------------------------------------------------
     def build_help_box(self):
         box = QGroupBox()
         layout = QHBoxLayout()
-        # centered layout
+        # center buttons
         layout.addStretch()
-        help_btn = QPushButton("Help")
-        help_btn.clicked.connect(self.show_manual)
-        # make it visually larger (vertical emphasis)
-        help_btn.setFixedWidth(160)   # prevents horizontal stretching
-        help_btn.setMinimumHeight(50) # taller than standard buttons
-        # optional: make it look slightly more prominent but still consistent
-        help_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        layout.addWidget(help_btn)
+
+        # Remote control button
+        self.remote_btn = QPushButton("Enable Remote Control")
+        self.remote_btn.setCheckable(True)
+        self.remote_btn.setFixedWidth(160)
+        self.remote_btn.setMinimumHeight(50)
+        self.remote_btn.setSizePolicy(
+            QSizePolicy.Fixed,
+            QSizePolicy.Fixed
+        )
+        self.remote_btn.clicked.connect(
+            self.toggle_remote_mode
+        )
+        layout.addWidget(self.remote_btn)
+        # spacing between buttons
+        layout.addSpacing(20)
+
+        # Help button
+        self.help_btn = QPushButton("Help")
+        self.help_btn.clicked.connect(
+            self.show_manual
+        )
+        self.help_btn.setFixedWidth(160)
+        self.help_btn.setMinimumHeight(50)
+        self.help_btn.setSizePolicy(
+            QSizePolicy.Fixed,
+            QSizePolicy.Fixed
+        )
+        layout.addWidget(self.help_btn)
+        # center buttons
         layout.addStretch()
         box.setLayout(layout)
+
         return box
+    
+    def toggle_remote_mode(self):
+        enabled = self.remote_btn.isChecked()
+        #self.set_manual_controls_enabled(enabled)
+        if enabled:
+            self.controller.enable_remote_mode()
+        else:
+            self.controller.disable_remote_mode()
+
+    def install_remote_mode_filters(self):
+        widgets = [
+            # sliders
+            self.xy_slider,
+            self.z_slider,
+            self.p_slider,
+
+            # z-limit
+            self.z_limit_edit,
+            self.z_limit_btn,
+
+            # save/load
+            self.goto_btn,
+            self.save_btn,
+            self.manage_btn,
+            self.save_name_edit,
+            self.position_combo,
+
+            # z widget buttons
+            self.z_control.up_btn,
+            self.z_control.down_btn,
+            self.z_control.stop_btn,
+            self.z_control.labjack,
+            self.z_control.piezo,
+
+            # xy widget buttons
+            self.xy_control.left_btn,
+            self.xy_control.right_btn,
+            self.xy_control.up_btn,
+            self.xy_control.down_btn,
+            self.xy_control.stop_btn,
+
+            self.step_box,
+        ]
+
+        for w in widgets:
+            w.installEventFilter(self)
+
+    def trigger_remote_button_blink(self):
+        # avoid overlapping blink animations
+        if self.remote_blink_timer.isActive():
+            return
+        self.log.warning("User tried to push a button during remote control")
+        self.remote_blink_state = False
+        self.remote_blink_counter = 0
+        self.remote_blink_timer.start(150)
+
+    def remote_blink_step(self):
+        self.remote_blink_state = (not self.remote_blink_state)
+        # bright flash
+        if self.remote_blink_state:
+            self.remote_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgb(255, 0, 0);
+                    color: white;
+                    font-weight: bold;
+                }
+            """)
+
+        # normal remote-mode appearance
+        else:
+            self.remote_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgb(140, 0, 0);
+                    color: white;
+                    font-weight: bold;
+                }
+            """)
+
+        self.remote_blink_counter += 1
+        # stop after 6 toggles
+        if self.remote_blink_counter >= 6:
+            self.remote_blink_timer.stop()
+            # restore final appearance
+            self.remote_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgb(140, 0, 0);
+                    color: white;
+                    font-weight: bold;
+                }
+            """)
+
+    def eventFilter(self, obj, event):
+        if self.controller.remote_mode:
+            blocked_events = [
+                event.MouseButtonPress,
+                event.MouseButtonDblClick,
+                event.Wheel,
+                event.KeyPress,
+            ]
+
+            if event.type() in blocked_events:
+                self.trigger_remote_button_blink()
+                return True
+
+        return super().eventFilter(obj, event)
     
     def handle_controller_event(self, event: dict):
         etype = event.get("type")
@@ -482,6 +619,33 @@ class MainWindow(QMainWindow):
                 msg = f"Soft limit {state}"
             self.log.info(f"{msg[:-2]}um")
             self.status.showMessage(msg, 2000)
+        
+        elif etype == "remote_mode":
+            enabled = event["enabled"]
+            # when remote mode is enabled:
+            # disable manual controls
+            print(f"being called with {enabled}")
+            #self.set_manual_controls_enabled(not enabled)
+            self.remote_btn.blockSignals(True)
+            self.remote_btn.setChecked(enabled)
+            if enabled:
+                self.remote_btn.setText("Disable Remote Control")
+                self.remote_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: rgb(140, 0, 0);
+                            color: white;
+                            font-weight: bold;
+                        }the 
+                    """)
+                self.log.info("Remote control mode enabled")
+                self.status.showMessage("REMOTE CONTROL ACTIVE", 0)
+            else:
+                self.remote_btn.setText("Enable Remote Control")
+                self.remote_btn.setStyleSheet("")
+                self.log.info("Remote control mode disabled")
+                self.status.showMessage("Manual control restored", 3000)
+            self.remote_btn.blockSignals(False)
+
         else:
             self.log.info(f"Unhandled controller event: {event}")
 
@@ -571,7 +735,7 @@ class MainWindow(QMainWindow):
             else:
                 self.log.error(f"{name} not connected")
 
-    # helper for pyinstaller loading files
+    # helper for pyinstaller executable loading files
     def resource_path(self, relative_path):
         if hasattr(sys, '_MEIPASS'):
             base_path = sys._MEIPASS
@@ -606,6 +770,7 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
         return container
     
+    # help window
     def show_manual(self):
         self.log.info("User opened the manual")
         dialog = QDialog(self)

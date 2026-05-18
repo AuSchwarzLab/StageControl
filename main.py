@@ -11,6 +11,7 @@ from widgets.main_window import MainWindow
 from hardware.mcmk4 import MCMK4
 from hardware.piezo_motor import PiezoStage
 from utils.multi_stage_controller import MultiStageController
+from utils.remote_controller import RemoteControlServer
 from hardware.standa_xy_stage import Standa_XY
 from hardware.thorlabs_zfs25b import ZFS25BStage
 
@@ -44,6 +45,7 @@ xy = Standa_XY()
 z = ZFS25BStage()
 piezo = PiezoStage()
 controller = MultiStageController(joystick, xy, z, piezo)
+remote_server = RemoteControlServer(controller)
 
 
 icon_path = resource_path("icon.ico")

@@ -16,6 +16,8 @@ class MultiStageController:
         # x, y, z, piezo
         self.axis_enabled = [True, True, True, True]
 
+        # loop initializations
+        self.remote_mode = False
         self.alive = True
         self.running = True
         self.gui_move_active = False
@@ -58,12 +60,35 @@ class MultiStageController:
 
         self.acceleration = 0.2
 
+        # joystick controller thread
         self.thread = threading.Thread(target=self.loop)
         self.thread.daemon = True
         self.thread.start()
 
         # callback for UI
         self.event_callback = None
+
+    
+    def enable_remote_mode(self):
+        self.remote_mode = True
+        # stop all axes immediately
+        self.stop_axes()
+        self.prev_axis_enabled = self.axis_enabled.copy()
+        self.axis_enabled = [False] * 4
+        if self.event_callback:
+            self.event_callback({
+                "type": "remote_mode",
+                "enabled": True
+            })
+
+    def disable_remote_mode(self):
+        self.remote_mode = False
+        self.axis_enabled = self.prev_axis_enabled
+        if self.event_callback:
+            self.event_callback({
+                "type": "remote_mode",
+                "enabled": False
+            })    
 
 
     # Helpers for GUI implementation
@@ -389,9 +414,10 @@ class MultiStageController:
     def loop(self):
         last_vz = None
         while self.alive:
-            if not self.running:
-                time.sleep(0.01)
+            if not self.running or self.remote_mode:
+                time.sleep(self.dt)
                 continue
+
             self.update() # process button events
             knobs = self.joystick.knob_values # process knob events
             

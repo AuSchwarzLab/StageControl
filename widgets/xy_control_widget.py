@@ -33,27 +33,27 @@ class XYControlWidget(QWidget):
 
         layout = QGridLayout()
 
-        up = QPushButton("↑")
-        down = QPushButton("↓")
-        left = QPushButton("←")
-        right = QPushButton("→")
-        stop = QPushButton("STOP")
-        stop.setStyleSheet("background-color:#8b0000; font-weight:bold")
-        layout.addWidget(up, 0, 1)
-        layout.addWidget(left, 1, 0)
-        layout.addWidget(stop, 1, 1)
-        layout.addWidget(right, 1, 2)
-        layout.addWidget(down, 2, 1)
+        self.up_btn = QPushButton("↑")
+        self.down_btn = QPushButton("↓")
+        self.left_btn = QPushButton("←")
+        self.right_btn = QPushButton("→")
+        self.stop_btn = QPushButton("STOP")
+        self.stop_btn.setStyleSheet("background-color:#8b0000; font-weight:bold")
+        layout.addWidget(self.up_btn, 0, 1)
+        layout.addWidget(self.left_btn, 1, 0)
+        layout.addWidget(self.stop_btn, 1, 1)
+        layout.addWidget(self.right_btn, 1, 2)
+        layout.addWidget(self.down_btn, 2, 1)
 
         self.setLayout(layout)
 
         # connect buttons
-        self.connect_button(up, 0, 1)
-        self.connect_button(down, 0, -1)
-        self.connect_button(left, -1, 0)
-        self.connect_button(right, 1, 0)
+        self.connect_button(self.up_btn, 0, 1)
+        self.connect_button(self.down_btn, 0, -1)
+        self.connect_button(self.left_btn, -1, 0)
+        self.connect_button(self.right_btn, 1, 0)
 
-        stop.clicked.connect(self.stop_move)
+        self.stop_btn.clicked.connect(self.stop_move)
 
     def connect_button(self, button, dx, dy):
         button.pressed.connect(lambda: self.start_move(dx, dy))
