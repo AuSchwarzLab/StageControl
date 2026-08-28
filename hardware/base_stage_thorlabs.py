@@ -92,18 +92,20 @@ class BaseStage(ABC):
 
     def set_velocity(self, velocity_mm: float) -> None:
         velocity_steps = velocity_mm * self.steps_per_mm
+        #print(f"velocity steps: {velocity_steps:.1f}")
         try:
             if abs(velocity_steps) < 100:
                 self.stage.stop()
                 return
             direction = "-" if velocity_steps > 0 else "+"
             self.stage.setup_velocity(
-                acceleration=50e3,
+                acceleration=20e4,
                 max_velocity=abs(velocity_steps),
-                scale=False
+                scale=True
             )
             self.stage.jog(direction)
         except Exception:
+            print(Exception)
             pass
 
     def stop(self) -> None:

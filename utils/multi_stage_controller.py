@@ -447,13 +447,6 @@ class MultiStageController:
             if self.zstage.connected and not self.gui_move_active:
                 if self.axis_enabled[2] and vz != 0:
                     pos = self.get_positions_raw()
-                    # limit for linear stage, since it shows strange behavior 
-                    # when hitting the upper limit
-                    print(f"z: {pos['z']}")
-                    if (pos["z"] > 24) and vz > 0:
-                        with self.lock_z:
-                            self.zstage.stop()
-                            vz = 0
                     if pos["z"] is not None and self.soft_limit_z is not None:
                         # upward motion (towards the soft limit)
                         if vz > 0 and self.soft_limit_enabled and self.soft_limit_z-pos["z"] < 0.1:
