@@ -92,6 +92,36 @@ class Standa_XY:
         if axis == "y":
             self.axis_2.command_move_calb(target_position)
 
+    def is_moving(self, axis: str = None) -> bool:
+        """
+        Report whether an axis is still executing a move command.
+
+        Parameters
+        ---------
+        str axis: "x" or "y"; when omitted both axes are checked
+
+        Returns
+        ---------
+        bool: True while the controller reports a running move command
+        """
+        if not self.connected:
+            return False
+
+        def running(ax):
+            try:
+                # MVCMD_RUNNING (0x80) stays set until the controller has
+                # finished the commanded move, including the settling ramp
+                return bool(int(ax.get_status().MvCmdSts) & 0x80)
+            except Exception as e:
+                print("Standa status read failed:", e)
+                return False
+
+        if axis == "x":
+            return running(self.axis_1)
+        if axis == "y":
+            return running(self.axis_2)
+        return running(self.axis_1) or running(self.axis_2)
+
     def close(self) -> None:
         if self.connected:
             self.axis_1.close_device()

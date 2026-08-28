@@ -51,9 +51,27 @@ class BaseStage(ABC):
     def steps_per_mm(self):
         return self.STEPS_PER_MM
 
-    def move(self, distance_mm: float) -> None:
-        if self.stage.is_moving():
-            return
+    def is_moving(self) -> bool:
+        """
+        Report whether the stage is currently executing a move.
+
+        Wrapped in a try/except so that a hiccup on the USB link cannot
+        turn a polling wait loop into an exception storm.
+        """
+        try:
+            return bool(self.stage.is_moving())
+        except Exception:
+            return False
+
+    def move(self, distance_mm: float) -> bool:
+        """
+        Start a relative move and return immediately.
+
+        Returns True when the move was actually issued, False when the
+        stage was still busy or the controller rejected the command.
+        """
+        if self.is_moving():
+            return False
 
         try:
             steps = distance_mm * self.steps_per_mm
@@ -65,17 +83,19 @@ class BaseStage(ABC):
             )
 
             self.stage.move_by(distance=steps, scale=False)
+            return True
 
         except Thorlabs.ThorlabsError:
             print("Movement failed (possibly motion limit reached).")
+            return False
 
-    def move_to(self, target_position_mm: float) -> None:
-        if self.stage.is_moving():
-            return
+    def move_to(self, target_position_mm: float) -> bool:
+        if self.is_moving():
+            return False
 
         if not (0 <= target_position_mm <= self.MAX_POSITION_MM):
             print("Target position outside valid range.")
-            return
+            return False
 
         self.stage.setup_velocity(
             acceleration=50e4,
@@ -89,6 +109,7 @@ class BaseStage(ABC):
         )
 
         self.stage.wait_move()
+        return True
 
     def set_velocity(self, velocity_mm: float) -> None:
         velocity_steps = velocity_mm * self.steps_per_mm
@@ -105,7 +126,7 @@ class BaseStage(ABC):
             )
             self.stage.jog(direction)
         except Exception:
-            print(Exception)
+            print(Exception.with_traceback)
             pass
 
     def stop(self) -> None:

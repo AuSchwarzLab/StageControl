@@ -3,6 +3,13 @@ import time
 import numpy as np
 
 
+# Tuning for the blocking motion helpers used by the remote interface.
+MOTION_POLL = 0.02        # s between motion-status polls
+MOTION_STARTUP = 0.3      # s grace for the controller to report motion
+MOVE_TIMEOUT = 60.0       # s default ceiling for a single blocking move
+Z_REACHED_TOL = 1e-3      # mm, tolerance for calling the target reached
+
+
 class MultiStageController:
     def __init__(self, joystick, standa, zstage, piezo):
         self.joystick = joystick
@@ -12,6 +19,10 @@ class MultiStageController:
 
         self.lock_piezo = threading.Lock()
         self.lock_z = threading.Lock()
+
+        # set by stop_axes() so a blocking remote move can tell "the stage
+        # stopped because it arrived" from "the stage was stopped on us"
+        self.motion_abort = threading.Event()
 
         # x, y, z, piezo
         self.axis_enabled = [True, True, True, True]
@@ -140,6 +151,208 @@ class MultiStageController:
         if self.piezo.connected:
             with self.lock_piezo: 
                 self.piezo.move_relative(dp)
+
+    # ------------------------------------------------------------------
+    # Blocking motion helpers
+    #
+    # The GUI and joystick paths above stay fire-and-forget on purpose:
+    # the joystick loop must never block. An external client driving a
+    # z-stack has the opposite need - it may only acquire the next slice
+    # once the stage has come to rest - so it gets its own variants here
+    # instead of changing the behaviour of the manual controls.
+    # ------------------------------------------------------------------
+
+    def read_z_position(self):
+        """
+        Read the z position straight from the stage and refresh the cache.
+
+        get_positions_raw() only polls z at 2 Hz to keep the joystick loop
+        cheap; a blocking move needs the live value both to compute its
+        target and to report where it ended up.
+        """
+        if not self.zstage.connected:
+            return None
+        try:
+            with self.lock_z:
+                z = self.zstage.get_position()
+        except Exception:
+            return None
+        self.z_position_cache = z
+        self.last_z_read_time = time.time()
+        return z
+
+    def wait_z_stopped(self, timeout=MOVE_TIMEOUT):
+        """
+        Block until the z stage reports that it is no longer moving.
+
+        The lock is released between polls so the GUI position readout
+        keeps updating while a remote move is in flight.
+
+        Returns "done", "aborted" or "timeout".
+        """
+        # A freshly issued move takes a moment to show up in the status
+        # word, so do not trust an immediate "not moving" reading.
+        startup_deadline = time.time() + MOTION_STARTUP
+        while time.time() < startup_deadline:
+            if self.motion_abort.is_set():
+                return "aborted"
+            with self.lock_z:
+                if self.zstage.is_moving():
+                    break
+            time.sleep(MOTION_POLL)
+
+        deadline = time.time() + timeout
+        while True:
+            if self.motion_abort.is_set():
+                return "aborted"
+            with self.lock_z:
+                moving = self.zstage.is_moving()
+            if not moving:
+                return "done"
+            if time.time() > deadline:
+                return "timeout"
+            time.sleep(MOTION_POLL)
+
+    def wait_xy_stopped(self, timeout=MOVE_TIMEOUT):
+        """
+        Block until both Standa axes report that they have stopped.
+
+        Returns "done", "aborted" or "timeout".
+        """
+        startup_deadline = time.time() + MOTION_STARTUP
+        while time.time() < startup_deadline:
+            if self.motion_abort.is_set():
+                return "aborted"
+            if self.standa.is_moving():
+                break
+            time.sleep(MOTION_POLL)
+
+        deadline = time.time() + timeout
+        while True:
+            if self.motion_abort.is_set():
+                return "aborted"
+            if not self.standa.is_moving():
+                return "done"
+            if time.time() > deadline:
+                return "timeout"
+            time.sleep(MOTION_POLL)
+
+    def move_z_step_blocking(self, dz, timeout=MOVE_TIMEOUT):
+        """
+        Relative z move that returns only once the stage has come to rest.
+
+        Mirrors move_z_step() for the soft-limit check and locking, but
+        reports what actually happened instead of failing silently.
+
+        Returns a dict whose "result" is one of
+        "done", "aborted", "timeout", "busy", "soft_limit",
+        "not_connected" or "no_position", together with the start, target
+        and final z positions (raw, i.e. without the zero offset).
+        """
+        info = {
+            "requested": dz,
+            "start": None,
+            "target": None,
+            "z": None,
+            "reached": False,
+            "result": "done"
+        }
+
+        if not self.zstage.connected:
+            info["result"] = "not_connected"
+            return info
+
+        start = self.read_z_position()
+        if start is None:
+            info["result"] = "no_position"
+            return info
+
+        target = start + dz
+        info["start"] = start
+        info["target"] = target
+
+        if not self.check_z_limit(target):
+            info["z"] = start
+            info["result"] = "soft_limit"
+            if self.event_callback:
+                self.event_callback({
+                    "type": "soft_limit_hit",
+                    "axis": "z",
+                    "limit": self.soft_limit_z,
+                    "position": start
+                })
+            return info
+
+        self.motion_abort.clear()
+
+        with self.lock_z:
+            started = self.zstage.move(dz)
+
+        if not started:
+            info["z"] = self.read_z_position()
+            info["result"] = "busy"
+            return info
+
+        info["result"] = self.wait_z_stopped(timeout=timeout)
+
+        final = self.read_z_position()
+        info["z"] = final
+        info["reached"] = (
+            final is not None
+            and abs(final - target) <= Z_REACHED_TOL
+        )
+        return info
+
+    def move_xy_step_blocking(self, dx, dy, timeout=MOVE_TIMEOUT):
+        """
+        Relative XY move that returns once both Standa axes have stopped.
+
+        Returns a dict shaped like the one from move_z_step_blocking().
+        """
+        info = {
+            "requested": {"x": dx, "y": dy},
+            "x": None,
+            "y": None,
+            "result": "done"
+        }
+
+        if not self.standa.connected:
+            info["result"] = "not_connected"
+            return info
+
+        self.motion_abort.clear()
+
+        try:
+            if dx != 0:
+                self.standa.move_relative("x", dx)
+            if dy != 0:
+                self.standa.move_relative("y", dy)
+        except Exception as e:
+            info["result"] = "error"
+            info["message"] = str(e)
+            return info
+
+        info["result"] = self.wait_xy_stopped(timeout=timeout)
+
+        try:
+            x, y = self.standa.get_position()
+            info["x"] = x
+            info["y"] = y
+        except Exception:
+            pass
+
+        return info
+
+    def is_moving(self):
+        """Per-axis motion status, for clients that prefer to poll."""
+        moving = {"x": False, "y": False, "z": False}
+        if self.standa.connected:
+            moving["x"] = self.standa.is_moving("x")
+            moving["y"] = self.standa.is_moving("y")
+        if self.zstage.connected:
+            with self.lock_z:
+                moving["z"] = self.zstage.is_moving()
+        return moving
 
     def move_to(self, x_target, y_target, z_target,
             tol_xy=0.5e-3, tol_z=0.5e-3,
@@ -499,6 +712,8 @@ class MultiStageController:
     def stop_axes(self):
         """Stop movement of all axes immediately"""
         self.running = False
+        # tell any blocking move in flight that this stop was not an arrival
+        self.motion_abort.set()
         if self.standa.connected:
             self.standa.stop()
         if self.zstage.connected:

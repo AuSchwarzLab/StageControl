@@ -145,6 +145,82 @@ Compatibility with similar hardware is possible by adding additional hardware cl
 
 ---
 
+## Remote Control Protocol
+
+The application listens on TCP port **5555** (all interfaces, `0.0.0.0`) and
+speaks line-delimited JSON: one JSON object in, one JSON object out,
+terminated by `\n`. Commands may be sent back-to-back or split across
+packets; the server reassembles them.
+
+**Motion commands block by default** - the reply is only sent once the stage
+has come to rest. This is what an external z-stack needs: receiving the reply
+means it is safe to acquire the next slice. Add `"wait": false` to get a
+fire-and-forget reply instead.
+
+Send `enable_remote` before a stack and `disable_remote` afterwards. While
+remote mode is on, the joystick loop is suspended so it cannot fight the
+remote moves.
+
+| Command | Fields | Blocks | Reply |
+|---|---|---|---|
+| `enable_remote` | - | no | `{"status": "ok"}` |
+| `disable_remote` | - | no | `{"status": "ok"}` |
+| `move_z` | `dz` (mm), `timeout` (s, default 60), `wait` | yes | `{"status": "ok", "result": "done", "z":, "target":, "reached":}` |
+| `move_x` / `move_y` | `dx` / `dy` (mm), `timeout`, `wait` | yes | `{"status": "ok", "result": "done", "x":, "y":}` |
+| `move_to` | `x`, `y`, `z` (mm, absolute) | yes | `{"status": "ok", "result": "done"}` |
+| `get_pos` | - | no | `{"status": "ok", "positions": {"x":, "y":, "z":, "piezo":}}` |
+| `is_moving` | - | no | `{"status": "ok", "moving": bool, "axes": {...}}` |
+| `wait_move` | `axis` (`z` / `x` / `y` / `xy`), `timeout` | yes | `{"status": "ok", "result": "done"}` |
+| `stop` | - | no | `{"status": "ok"}` |
+| `ping` | - | no | `{"status": "ok"}` |
+
+`"status"` is `"ok"` only when the move finished normally. Otherwise it is
+`"error"` and `"result"` carries the reason:
+
+| `result` | Meaning |
+|---|---|
+| `aborted` | a `stop` (remote or from the GUI) interrupted the move |
+| `timeout` | the stage never reported that it stopped |
+| `busy` | the stage was still executing a previous move |
+| `soft_limit` | the target lies beyond the active z soft limit |
+| `not_connected` | that stage is not connected |
+| `no_position` | the stage position could not be read |
+
+Positions in replies are in millimetres and follow the same zero reference as
+the GUI readout.
+
+### Networking
+
+For a direct link to a second PC, give both machines a static address in the
+same subnet (e.g. `192.168.50.1` and `192.168.50.2`, mask `255.255.255.0`, no
+gateway) and add an inbound Windows Firewall rule for TCP 5555. To keep the
+server off the house network, pass the adapter address explicitly:
+
+```python
+remote_server = RemoteControlServer(controller, host="192.168.50.1")
+```
+
+`RemoteControlServer` also accepts `allowed_clients=["192.168.50.2"]` to
+reject connections from any other address.
+
+Note that a blocking move holds the client's socket open for the duration of
+the move, so the client's receive timeout must be longer than the slowest
+expected move.
+
+### Testing without hardware
+
+`testing/remote_blocking_test.py` runs the real server and controller against
+fake stages and checks the protocol, the framing and the blocking behaviour:
+
+```
+python testing/remote_blocking_test.py
+```
+
+`testing/server_testing.py` is a simple interactive client for a running
+instance.
+
+---
+
 ## Safety Notes
 
 - Always ensure that the stage path is free of obstructions before movement  

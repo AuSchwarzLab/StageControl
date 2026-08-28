@@ -60,4 +60,5 @@ window.show()
 window.setWindowIcon(icon)
 
 app.exec()
+remote_server.close()
 controller.stop()
