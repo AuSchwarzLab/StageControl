@@ -140,6 +140,9 @@ Compatibility with similar hardware is possible by adding additional hardware cl
 - **Position management:**  
   Save, load, and navigate to stored positions  
 
+- **Remote Server Control:**<br>
+  Let the application take stage commands via listening to a remote server, e.g. custom imaging software (perform automatic z-stacks, mosaics, etc.)
+
 ---
 
 ## Safety Notes
@@ -174,11 +177,14 @@ If hardware is not detected:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── stage_indicator_widget.py <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── xy_control_widget.py <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── z_control_widget.py <br>
-├── position_manager.py <br>
-├── logger.py <br>
+├── utils/ <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── position_manager.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── logger.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── remote_controller.py <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── multi_stage_controller.py <br>
 ├── logs/ <br>
 ├── positions/ <br>
-└── dist/ (build output, ignored)
+├── dist/ (build output, ignored)
 
 ## Notes
 
