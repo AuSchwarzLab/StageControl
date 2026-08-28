@@ -185,6 +185,13 @@ def main():
 
     client = Client(PORT)
 
+    # Must come first: a client shutting down may send disable_remote
+    # before this process has ever been in remote mode.
+    print("\n0. disable_remote as the very first command")
+    r = client.command(cmd="disable_remote")
+    check("disable_remote on a fresh controller returns ok",
+          r.get("status") == "ok", r)
+
     print("\n1. enable remote mode")
     r = client.command(cmd="enable_remote")
     check("enable_remote returns ok", r.get("status") == "ok", r)
@@ -282,6 +289,39 @@ def main():
     print("\n10. disable remote mode")
     r = client.command(cmd="disable_remote")
     check("disable_remote returns ok", r.get("status") == "ok", r)
+
+    print("\n11. remote mode is idempotent")
+    # A client may send disable_remote defensively on shutdown, possibly
+    # without ever having enabled it.
+    r = client.command(cmd="disable_remote")
+    check("disable without a prior enable returns ok",
+          r.get("status") == "ok", r)
+
+    # The realistic sequence: the operator arms remote control with the GUI
+    # button, then the imaging software arms it again before its stack.
+    controller.axis_enabled = [True, True, True, True]
+
+    controller.enable_remote_mode()                  # GUI button
+    check("axes disabled while remote",
+          controller.axis_enabled == [False] * 4, controller.axis_enabled)
+
+    r = client.command(cmd="enable_remote")          # imaging PC
+    check("second enable returns ok", r.get("status") == "ok", r)
+    check("double enable keeps the saved joystick state",
+          controller.prev_axis_enabled == [True] * 4,
+          controller.prev_axis_enabled)
+
+    r = client.command(cmd="disable_remote")
+    check("joystick axes restored after handing control back",
+          controller.axis_enabled == [True] * 4, controller.axis_enabled)
+    check("remote mode is off again", controller.remote_mode is False)
+
+    # restoring must not alias the saved list, or later joystick toggles
+    # would rewrite the state that a future disable restores
+    controller.axis_enabled[0] = False
+    check("restored state is a copy, not an alias",
+          controller.prev_axis_enabled == [True] * 4,
+          controller.prev_axis_enabled)
 
     client.close()
     server.close()

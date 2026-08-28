@@ -635,7 +635,7 @@ class MainWindow(QMainWindow):
                             background-color: rgb(140, 0, 0);
                             color: white;
                             font-weight: bold;
-                        }the 
+                        } 
                     """)
                 self.log.info("Remote control mode enabled")
                 self.status.showMessage("REMOTE CONTROL ACTIVE", 0)

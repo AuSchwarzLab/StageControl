@@ -27,6 +27,11 @@ class MultiStageController:
         # x, y, z, piezo
         self.axis_enabled = [True, True, True, True]
 
+        # joystick axis state to restore when remote mode is handed back;
+        # initialised here so disable_remote_mode() is safe even if the
+        # client sends disable_remote without ever having enabled it
+        self.prev_axis_enabled = self.axis_enabled.copy()
+
         # loop initializations
         self.remote_mode = False
         self.alive = True
@@ -81,6 +86,20 @@ class MultiStageController:
 
     
     def enable_remote_mode(self):
+        """
+        Hand control of the stages to the remote client.
+
+        Both the GUI button and the remote "enable_remote" command land
+        here, so being enabled twice is normal operation - the operator
+        arms remote control and the imaging software then arms it again.
+        The early return keeps that second call from saving the
+        all-disabled axis state as the one to restore later, which would
+        leave the joystick dead once control is handed back. It also
+        avoids stopping a move that is already running.
+        """
+        if self.remote_mode:
+            return
+
         self.remote_mode = True
         # stop all axes immediately
         self.stop_axes()
@@ -93,8 +112,17 @@ class MultiStageController:
             })
 
     def disable_remote_mode(self):
+        """
+        Return control to the joystick and the GUI.
+
+        Safe to call when remote mode was never enabled: an external
+        client may send "disable_remote" defensively when it shuts down.
+        """
+        if not self.remote_mode:
+            return
+
         self.remote_mode = False
-        self.axis_enabled = self.prev_axis_enabled
+        self.axis_enabled = self.prev_axis_enabled.copy()
         if self.event_callback:
             self.event_callback({
                 "type": "remote_mode",
